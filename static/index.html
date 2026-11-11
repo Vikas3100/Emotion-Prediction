@@ -1,11 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moodscope – what does this sentence feel like?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫧</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--c:#7c8cff;--ink:#10121a;--fg:#eceef5;--mut:#9399ae;--line:rgba(255,255,255,.1);--serif:'Instrument Serif',Georgia,serif}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--ink);color:var(--fg);font:16px/1.55 Figtree,system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+button,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--c);outline-offset:3px}
+
+/* ambient light: the page takes on the colour of the detected emotion */
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.aurora i{position:absolute;border-radius:50%;filter:blur(100px);opacity:.32;background-color:var(--c);transition:background-color 1.4s ease}
+.aurora i:nth-child(1){width:46vw;height:46vw;left:-10vw;top:-14vw;animation:d1 22s ease-in-out infinite alternate}
+.aurora i:nth-child(2){width:38vw;height:38vw;right:-8vw;top:20vh;opacity:.22;animation:d2 27s ease-in-out infinite alternate}
+.aurora i:nth-child(3){width:34vw;height:34vw;left:30vw;bottom:-18vw;opacity:.2;animation:d1 31s ease-in-out infinite alternate-reverse}
+@keyframes d1{to{transform:translate(9vw,7vh) scale(1.15)}}
+@keyframes d2{to{transform:translate(-8vw,-6vh) scale(.9)}}
+
+.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:26px 22px 70px}
+nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:clamp(28px,7vh,64px)}
+.brand{font-family:var(--serif);font-size:26px;letter-spacing:.2px}
+.pill{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mut);border:1px solid var(--line);padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.03)}
+.pill b{width:8px;height:8px;border-radius:50%;background:#e5b84a;animation:pulse 1.4s infinite}
+.pill.ok b{background:#4cd694;animation:none}
+.pill.bad b{background:#ff6b64;animation:none}
+@keyframes pulse{50%{opacity:.25}}
+
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(40px,6.4vw,76px);line-height:1.02;margin:0 0 16px;max-width:15ch;letter-spacing:-.5px}
+.lede{color:var(--mut);max-width:52ch;margin:0 0 clamp(26px,5vh,44px)}
+.hero>*{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
+.hero .lede{animation-delay:.12s}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}}
+
+.grid{display:grid;grid-template-columns:1.12fr .88fr;gap:20px;align-items:stretch}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+.card{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.04);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:24px}
+.card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(380px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--c) 20%,transparent),transparent 65%)}
+.card:hover::before{opacity:1}
+.card>*{position:relative}
+.scan::after{content:"";position:absolute;left:0;top:0;height:2px;width:40%;background:linear-gradient(90deg,transparent,var(--c),transparent);animation:scan 1.1s ease-in-out infinite}
+@keyframes scan{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
+
+textarea{display:block;width:100%;min-height:170px;resize:none;background:none;border:0;outline:0;font-family:var(--serif);font-size:clamp(24px,3vw,31px);line-height:1.28;caret-color:var(--c)}
+textarea::placeholder{color:#5d6279}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid var(--line);padding-top:16px;margin-top:12px;flex-wrap:wrap}
+.meta{color:var(--mut);font-size:14px;font-variant-numeric:tabular-nums}
+.go{display:inline-flex;align-items:center;gap:10px;border:0;cursor:pointer;background:var(--c);color:#10121a;font-weight:700;padding:12px 24px;border-radius:999px;transition:background-color 1.4s,transform .2s,box-shadow .3s}
+.go:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 30px -8px var(--c)}
+.go:active:not(:disabled){transform:scale(.97)}
+.go:disabled{opacity:.4;cursor:not-allowed}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(16,18,26,.3);border-top-color:#10121a;animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.err{color:#ff8a84;font-size:14px;margin:10px 0 0}
+
+.try{margin-top:18px}
+.try p{margin:0 0 10px;color:var(--mut);font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{cursor:pointer;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;transition:transform .25s cubic-bezier(.3,1.6,.5,1),border-color .2s,background-color .2s}
+.chip:hover{transform:translateY(-3px) rotate(-1.5deg);border-color:var(--k);background:color-mix(in srgb,var(--k) 14%,transparent)}
+
+/* result */
+.res{display:flex;flex-direction:column;align-items:center;text-align:center;min-height:440px;justify-content:center}
+.idle .floaters{display:flex;gap:10px;font-size:30px;margin-bottom:18px}
+.idle .floaters span{animation:bob 3.2s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-9px)}}
+.idle p{color:var(--mut);max-width:26ch;margin:0}
+.ring{position:relative;width:200px;height:200px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:7}
+.ring .t{stroke:rgba(255,255,255,.08)}
+.ring .p{stroke:var(--c);stroke-linecap:round;transition:stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1),stroke 1.4s;filter:drop-shadow(0 0 8px var(--c))}
+.emo{position:absolute;inset:0;display:grid;place-items:center;font-size:74px;animation:pop .8s cubic-bezier(.2,1.6,.4,1) both .1s}
+@keyframes pop{from{transform:scale(.2) rotate(-18deg);opacity:0}}
+.name{font-family:var(--serif);font-size:clamp(46px,6vw,62px);line-height:1;margin:18px 0 4px;color:var(--c);text-transform:capitalize;transition:color 1.4s;animation:rise .7s .15s both}
+.conf{color:var(--mut);margin:0 0 24px;font-variant-numeric:tabular-nums}
+.conf b{color:var(--fg);font-weight:700}
+.rows{width:100%;display:grid;gap:9px}
+.row{display:grid;grid-template-columns:104px 1fr 56px;align-items:center;gap:10px;font-size:14px;text-align:left}
+.row .l{color:var(--mut);text-transform:capitalize;white-space:nowrap}
+.row.top .l,.row.top .v{color:var(--fg)}
+.track{height:8px;border-radius:9px;background:rgba(255,255,255,.07);overflow:hidden}
+.fill{height:100%;width:0;border-radius:9px;background:var(--k);opacity:.55;transition:width 1.1s cubic-bezier(.2,.8,.2,1)}
+.row.top .fill{opacity:1;box-shadow:0 0 14px var(--k)}
+.v{text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
+
+/* history */
+.hist{margin-top:34px}
+.hh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.hh h2{font-family:var(--serif);font-weight:400;font-size:28px;margin:0}
+.link{background:none;border:0;color:var(--mut);cursor:pointer;font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.link:hover{color:var(--fg)}
+.hl{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.hi{display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.03);transition:border-color .2s,transform .2s;animation:rise .5s both}
+.hi:hover{border-color:var(--k);transform:translateY(-2px)}
+.hi .e{font-size:24px}
+.hi .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.hi .pc{color:var(--mut);font-size:13px;font-variant-numeric:tabular-nums}
+footer{margin-top:46px;color:#656a80;font-size:13px}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
+</style>
 </head>
 <body>
-    <H1>App is working </H1>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const EMO = {
+  sadness:  { e:'😢', c:'#6e9bff', s:"I keep walking past her room, and the house feels so quiet now." },
+  joy:      { e:'😄', c:'#ffb938', s:"I got the job and I can’t stop smiling!" },
+  love:     { e:'😍', c:'#ff6fa3', s:"Every morning with you feels like a gift I never expected." },
+  anger:    { e:'😠', c:'#ff5a52', s:"They cancelled again without telling me, and I’m furious." },
+  fear:     { e:'😨', c:'#a07cff', s:"I heard footsteps downstairs and I’m too scared to move." },
+  surprise: { e:'😲', c:'#27cdb8', s:"Wait, you remembered my birthday? I had no idea!" },
+};
+const ORDER = Object.keys(EMO);
+const IDLE = '#7c8cff';
+const MAX = 2000;
+const pct = p => (p * 100 < 0.1 ? '<0.1%' : (p * 100).toFixed(1) + '%');
+
+function useCount(target, ms = 1100) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf, t0;
+    const tick = t => {
+      t0 = t0 ?? t;
+      const k = Math.min((t - t0) / ms, 1);
+      setN(target * (1 - Math.pow(1 - k, 4)));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return n;
+}
+
+function spotlight(e) {
+  const r = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty('--mx', e.clientX - r.left + 'px');
+  e.currentTarget.style.setProperty('--my', e.clientY - r.top + 'px');
+}
+
+function Result({ r }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setOn(true), 40); return () => clearTimeout(t); }, []);
+  const C = 2 * Math.PI * 90;
+  const shown = useCount(r.confidence * 100);
+  return (
+    <>
+      <div className="ring">
+        <svg viewBox="0 0 200 200" aria-hidden="true">
+          <circle className="t" cx="100" cy="100" r="90" />
+          <circle className="p" cx="100" cy="100" r="90" strokeDasharray={C}
+                  strokeDashoffset={on ? C * (1 - r.confidence) : C} />
+        </svg>
+        <div className="emo">{EMO[r.predicted_emotion].e}</div>
+      </div>
+      <div className="name">{r.predicted_emotion}</div>
+      <p className="conf"><b>{shown.toFixed(1)}%</b> confident</p>
+      <div className="rows">
+        {ORDER.map((k, i) => (
+          <div key={k} className={'row' + (k === r.predicted_emotion ? ' top' : '')} style={{ '--k': EMO[k].c }}>
+            <span className="l">{EMO[k].e} {k}</span>
+            <div className="track"><div className="fill" style={{ width: on ? (r.all_probabilities[k] * 100) + '%' : 0, transitionDelay: i * 70 + 'ms' }} /></div>
+            <span className="v">{pct(r.all_probabilities[k] || 0)}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function App() {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [err, setErr] = useState('');
+  const [health, setHealth] = useState('wait');
+  const [hist, setHist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('moodscope:history')) || []; } catch { return []; }
+  });
+  const rid = useRef(0);
+  const ta = useRef(null);
+
+  // server status (Render free instances sleep, so keep polling until the model is loaded)
+  useEffect(() => {
+    let alive = true, timer;
+    const ping = async () => {
+      try {
+        const j = await (await fetch('/health')).json();
+        if (!alive) return;
+        if (j.model_loaded) { setHealth('ok'); return; }
+        setHealth('wait');
+      } catch { if (alive) setHealth('bad'); }
+      timer = setTimeout(ping, 4000);
+    };
+    ping();
+    return () => { alive = false; clearTimeout(timer); };
+  }, []);
+
+  // page colour follows the emotion
+  useEffect(() => {
+    document.documentElement.style.setProperty('--c', res ? EMO[res.predicted_emotion].c : IDLE);
+  }, [res]);
+
+  useEffect(() => {
+    try { localStorage.setItem('moodscope:history', JSON.stringify(hist)); } catch {}
+  }, [hist]);
+
+  useEffect(() => { // auto-grow
+    const el = ta.current; if (!el) return;
+    el.style.height = 'auto'; el.style.height = Math.max(170, el.scrollHeight) + 'px';
+  }, [text]);
+
+  const analyze = useCallback(async (value) => {
+    const t = (value ?? text).trim();
+    if (!t || busy) return;
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch('/predict', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: t }),
+      });
+      if (!r.ok) {
+        let d = ''; try { const j = await r.json(); d = typeof j.detail === 'string' ? j.detail : ''; } catch {}
+        throw new Error(d || 'The server returned an error (' + r.status + ').');
+      }
+      const data = await r.json();
+      data.id = ++rid.current;
+      setRes(data);
+      setHist(h => [{ id: Date.now(), text: t, data }, ...h].slice(0, 8));
+    } catch (e) {
+      setErr(e.message && e.message !== 'Failed to fetch' ? e.message
+        : 'Couldn’t reach the model. Check that the server is running, then try again.');
+    } finally { setBusy(false); }
+  }, [text, busy]);
+
+  const example = k => { setText(EMO[k].s); analyze(EMO[k].s); };
+  const restore = h => { setText(h.text); setRes({ ...h.data, id: ++rid.current }); setErr(''); };
+  const label = { ok: 'Model ready', wait: 'Loading the model…', bad: 'Server unreachable' }[health];
+
+  return (
+    <div className="wrap">
+      <nav>
+        <span className="brand">Moodscope</span>
+        <span className={'pill ' + health} role="status"><b />{label}</span>
+      </nav>
+
+      <header className="hero">
+        <h1>What does this sentence feel like?</h1>
+        <p className="lede">Write anything. A BiGRU network reads it and scores how much sadness, joy, love, anger, fear and surprise it carries.</p>
+      </header>
+
+      <div className="grid">
+        <section className={'card' + (busy ? ' scan' : '')} onMouseMove={spotlight}>
+          <textarea ref={ta} value={text} maxLength={MAX} autoFocus
+            aria-label="Sentence to analyze"
+            placeholder="I never thought I’d feel this lighter after just one conversation…"
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) analyze(); }} />
+          <div className="bar">
+            <span className="meta">{text.length}/{MAX} · Ctrl + Enter to analyze</span>
+            <button className="go" disabled={!text.trim() || busy} onClick={() => analyze()}>
+              {busy && <span className="spin" />}{busy ? 'Reading…' : 'Read the emotion'}
+            </button>
+          </div>
+          {err && <p className="err" role="alert">{err}</p>}
+          <div className="try">
+            <p>Or start from an example</p>
+            <div className="chips">
+              {ORDER.map(k => (
+                <button key={k} className="chip" style={{ '--k': EMO[k].c }} onClick={() => example(k)}>{EMO[k].e} {k}</button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="card res" onMouseMove={spotlight} aria-live="polite">
+          {res ? <Result key={res.id} r={res} /> : (
+            <div className="idle">
+              <div className="floaters" aria-hidden="true">
+                {ORDER.map((k, i) => <span key={k} style={{ animationDelay: i * .35 + 's' }}>{EMO[k].e}</span>)}
+              </div>
+              <p>Your result will show up here, with a score for each emotion.</p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {hist.length > 0 && (
+        <section className="hist">
+          <div className="hh">
+            <h2>Recent readings</h2>
+            <button className="link" onClick={() => setHist([])}>Clear history</button>
+          </div>
+          <div className="hl">
+            {hist.map(h => (
+              <button key={h.id} className="hi" style={{ '--k': EMO[h.data.predicted_emotion].c }} onClick={() => restore(h)}>
+                <span className="e">{EMO[h.data.predicted_emotion].e}</span>
+                <span className="tx">{h.text}</span>
+                <span className="pc">{Math.round(h.data.confidence * 100)}%</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      <footer>Predictions come from a trained model and can be wrong on short, sarcastic or ambiguous text.</footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
 </body>
 </html>
